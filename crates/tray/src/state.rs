@@ -82,8 +82,14 @@ pub struct TrayState {
     /// Which coloured dot to show.
     pub dot: DotState,
     /// Tooltip string (e.g. "hushwarren — 1 234 blocked today").
+    ///
+    /// Read by the macOS tray UI; the headless `--once` path reads only `dot`.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub tooltip: String,
     /// Blocked counter for the disabled menu line.
+    ///
+    /// Read by the macOS tray UI; the headless `--once` path reads only `dot`.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub blocked_total: u64,
 }
 

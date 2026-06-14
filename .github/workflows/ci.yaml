@@ -36,16 +36,13 @@ jobs:
       - name: Format check
         run: cargo fmt --all -- --check
 
-      # hush-tray is excluded on Linux: the tray UI (event loop, icon helpers)
-      # is macOS-first — `icon_for_state` is cfg(macos|windows) only, so the
-      # crate does not build on Linux. The always-on Gitea `gate` runs on macOS
-      # and covers hush-tray there; this Linux mirror skips it (same rationale
-      # as the Windows gate below). Drop the --exclude once a Linux tray lands.
+      # hush-tray builds on Linux: the macOS-only tray UI is cfg-gated, leaving
+      # the headless `--once` path (the cross-platform part) compiling cleanly.
       - name: Clippy (deny warnings)
-        run: cargo clippy --workspace --exclude hush-tray --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Tests (full pyramid; live tests stay #[ignore]-gated)
-        run: cargo test --workspace --exclude hush-tray
+        run: cargo test --workspace
 
       - name: Install cargo-deny
         uses: taiki-e/install-action@v2
@@ -58,9 +55,8 @@ jobs:
   gate-windows:
     # Native Windows runner — covers the cfg(windows) code (DNS takeover via
     # Set-DnsClientServerAddress, ifIndex resolution, the SCM service path) that
-    # the Linux gate cfg-excludes. hush-tray is excluded: its tray event loop is
-    # macOS/Linux-only, so it's compiled-but-unused (dead_code under -D warnings)
-    # on Windows until the Windows tray port lands.
+    # the Linux gate cfg-excludes. hush-tray's macOS-only tray UI is cfg-gated,
+    # so the crate (headless `--once` path) builds clean here too.
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -79,7 +75,7 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
 
       - name: Clippy (deny warnings; compiles cfg(windows))
-        run: cargo clippy --workspace --exclude hush-tray --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Tests (full pyramid; live tests stay #[ignore]-gated)
-        run: cargo test --workspace --exclude hush-tray
+        run: cargo test --workspace

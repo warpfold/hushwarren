@@ -31,13 +31,9 @@
 
 mod client;
 mod discovery;
+#[cfg(target_os = "macos")]
 mod icon;
 mod state;
-
-use std::{
-    sync::{Arc, Mutex},
-    time::{Duration, Instant},
-};
 
 use clap::Parser;
 use tracing::warn;
@@ -45,8 +41,23 @@ use tracing::warn;
 use crate::{
     client::TrayClient,
     discovery::{load_credentials, resolve_state_dir},
+    state::{status_to_tray, unreachable_state},
+};
+
+// Tray-UI-only imports (macOS). The event loop, shared state, and icon helpers
+// are compiled only where the tray actually runs; the headless `--once` path
+// below needs none of them, so Linux/Windows builds stay clean under
+// `-D warnings`. (The tray UI is macOS-only: tray-icon's Linux dependency chain
+// pulls MPL-2.0 `option-ext`, banned by the license policy — see icon.rs.)
+#[cfg(target_os = "macos")]
+use std::{
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
+#[cfg(target_os = "macos")]
+use crate::{
     icon::icon_for_state,
-    state::{status_to_tray, unreachable_state, DotState, TrayState},
+    state::{DotState, TrayState},
 };
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
@@ -66,6 +77,7 @@ struct Cli {
 // ── Poll interval ─────────────────────────────────────────────────────────────
 
 /// How often the background thread polls `/v0/status`.
+#[cfg(target_os = "macos")]
 const POLL_INTERVAL: Duration = Duration::from_secs(5);
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -298,6 +310,7 @@ fn run_tray() {
 ///
 /// Runs forever in a background thread.  Any error (unreachable daemon, bad
 /// credentials) resolves to the grey `unreachable_state()` — never panics.
+#[cfg(target_os = "macos")]
 fn poll_loop(shared: Arc<Mutex<TrayState>>) {
     loop {
         let state_dir = resolve_state_dir();
@@ -341,6 +354,10 @@ fn poll_loop(shared: Arc<Mutex<TrayState>>) {
 /// `crates/cli/src/main.rs` `cmd_dashboard` exactly.
 /// The fragment is never sent to the server; the SPA reads it from
 /// `location.hash` and moves the token to sessionStorage.
+///
+/// Compiled on macOS (used by the tray's "Open dashboard" action) and in test
+/// builds (the unit test below runs on every platform).
+#[cfg(any(target_os = "macos", test))]
 pub(crate) fn dashboard_url(base_url: &str, token: &str) -> String {
     format!("{base_url}/dashboard/#token={token}")
 }
@@ -350,6 +367,7 @@ pub(crate) fn dashboard_url(base_url: &str, token: &str) -> String {
 /// Builds the `http://<addr>/dashboard/#token=<token>` URL exactly as
 /// `hush dashboard` does (`crates/cli/src/main.rs` cmd_dashboard), then
 /// shells out to `open` (macOS).
+#[cfg(target_os = "macos")]
 fn open_dashboard(base_url: &str, token: &str) {
     let url = dashboard_url(base_url, token);
     #[cfg(target_os = "macos")]

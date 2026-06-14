@@ -98,6 +98,9 @@ impl TrayClient {
     /// `POST /v0/snooze` with `{"secs": secs}`.
     ///
     /// `secs` must be in `[1, 86400]` (daemon enforces; we pass through).
+    ///
+    /// Called from the macOS tray menu; the headless `--once` path never snoozes.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub fn snooze(&self, secs: u64) -> Result<(), ClientError> {
         let url = format!("{}/v0/snooze", self.base_url);
         let body = format!("{{\"secs\":{secs}}}");
@@ -124,6 +127,9 @@ impl TrayClient {
     /// The daemon's unsnooze contract (verified in `routes.rs`): `POST /v0/resume`
     /// calls `sentinel.resume()` and returns the new state.  Secs=0 is NOT the
     /// unsnooze path — `/v0/resume` is the correct endpoint.
+    ///
+    /// Called from the macOS tray menu; the headless `--once` path never resumes.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub fn resume(&self) -> Result<(), ClientError> {
         let url = format!("{}/v0/resume", self.base_url);
         let resp = self

@@ -90,14 +90,11 @@ jobs:
             git checkout "$GITHUB_SHA"
           fi
 
-      # hush-tray is excluded on Windows: its system-tray event loop is only
-      # wired for macOS/Linux, so the icon/state helpers are compiled-but-unused
-      # on Windows (dead_code under -D warnings). The Windows tray port is
-      # separate, unfinished work; drop the --exclude once it lands. The
-      # Windows-critical code (DNS takeover, SCM service) lives in hush-daemon,
-      # which IS covered here.
+      # hush-tray's tray UI is macOS-only and cfg-gated, so the crate (its
+      # headless `--once` path) builds clean on Windows too. The Windows-critical
+      # code (DNS takeover, SCM service) lives in hush-daemon, also covered here.
       - name: Clippy (deny warnings; compiles cfg(windows))
-        run: cd "$WS" && cargo clippy --workspace --exclude hush-tray --all-targets -- -D warnings
+        run: cd "$WS" && cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Tests (full pyramid; live tests stay #[ignore]-gated)
-        run: cd "$WS" && cargo test --workspace --exclude hush-tray
+        run: cd "$WS" && cargo test --workspace
