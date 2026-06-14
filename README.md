@@ -258,6 +258,21 @@ bind = []                 # e.g. ["192.168.1.10"] — then point your router's D
 - The **Sentinel** is what distinguishes hushwarren from "hickory + a blocklist." It owns all zero-touch guarantees.
 - The **control API** (axum, `127.0.0.1` only, token-authenticated) serves both the JSON API and the embedded dashboard SPA as a single binary — no separate web server.
 
+See [`docs/architecture.md`](docs/architecture.md) for the full design.
+
+---
+
+## Documentation
+
+| Doc | What's in it |
+|---|---|
+| [`docs/user-guide.md`](docs/user-guide.md) | Install, daily use, configuration reference |
+| [`docs/architecture.md`](docs/architecture.md) | System design, component map, data flow |
+| [`docs/zero-touch-ux.md`](docs/zero-touch-ux.md) | The engineering behind "do nothing" |
+| [`docs/os-integration.md`](docs/os-integration.md) | Per-OS DNS takeover, services, installers |
+| [`docs/privacy-roadmap.md`](docs/privacy-roadmap.md) | Privacy tiers, what's on by default and why |
+| [`docs/network-guard.md`](docs/network-guard.md) | LAN mode setup |
+
 ---
 
 ## Contributing

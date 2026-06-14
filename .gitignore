@@ -23,6 +23,5 @@ spark-design.png
 spark-design.svg
 Screenshot*.png
 
-# Internal design docs & live-proof evidence — kept local, not published
-docs/
+# Live-proof evidence — per-run, machine-specific; kept local, not published
 proof/
