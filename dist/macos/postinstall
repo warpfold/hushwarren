@@ -1,0 +1,36 @@
+#!/bin/bash
+# dist/macos/postinstall — pkg postinstall script.
+#
+# Runs as root after the payload is installed.  Uses the same takeover flow as
+# install.sh (via lib.sh) to preserve the proven transactional behaviour.
+# Idempotent: safe to re-run on pkg upgrade.
+#
+# WP12 §2: postinstall = existing install flow reused via lib.sh.
+set -euo pipefail
+
+# lib.sh is installed alongside postinstall in the pkg scripts directory.
+# shellcheck source=lib.sh
+. "$(dirname "$0")/lib.sh"
+
+echo "==> hushwarren postinstall: starting"
+
+# Directories created by the pkg payload (pkgbuild ensures these exist).
+mkdir -p "${APP_SUPPORT}" "${LOG_DIR}"
+
+echo "==> writing LaunchDaemon and starting daemon"
+write_launch_daemon
+start_daemon_and_wait
+
+echo "==> running DNS takeover"
+run_takeover
+
+echo "==> showing status"
+HUSH_STATE_DIR="${APP_SUPPORT}" "${BIN_DST}/hush" status || true
+
+# hush-tray: the pkg installs it to BIN_DST; the tray plist is in SHARE_DIR.
+TRAY_PLIST_SRC="${SHARE_DIR}/io.hushwarren.tray.plist"
+install_tray_agent "${TRAY_PLIST_SRC}"
+
+echo
+echo "hushwarren is protecting this machine."
+echo "Uninstall any time with: sudo /usr/local/share/hushwarren/uninstall.sh"

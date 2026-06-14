@@ -1,0 +1,48 @@
+[package]
+name = "hush-tray"
+description = "hushwarren menu-bar / system-tray UI — the entire ambient surface"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "hush-tray"
+path = "src/main.rs"
+
+[dependencies]
+# HTTP — reqwest blocking with rustls (matches workspace's reqwest config).
+# "blocking" feature is the lightest already-vetted dep for a polling thread.
+# Avoids tokio runtime complexity since tao owns the main thread.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "json", "blocking"] }
+
+serde       = { version = "1.0", features = ["derive"] }
+serde_json  = "1.0"
+thiserror   = "2.0"
+tracing     = "0.1"
+clap        = { version = "4.5", features = ["derive"] }
+
+# Tray UI deps are macOS+Windows ONLY. Linux tray is deferred: the Linux
+# audience is headless-first (os-integration §3 "headless servers are a real
+# Linux audience"), the gtk stack is unverifiable in this environment, and
+# tray-icon's Linux-conditional chain (dirs → dirs-sys → option-ext) is
+# MPL-2.0 — banned by the license policy. Revisit with its own spec if Linux
+# desktop demand materialises.
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+# Tray icon + menu — Tauri-maintained; MIT/Apache-2.0.
+# tray-icon 0.24.1 is the latest stable (June 2026).
+# muda is re-exported by tray-icon; we add it directly for explicit Menu/MenuItem types.
+tray-icon = { version = "0.24.1", default-features = false }
+muda       = { version = "0.19.2", default-features = false }
+# tao is the event-loop crate tray-icon's macOS integration requires (main-thread UI).
+# Apache-2.0; verified on docs.rs/tao/0.35.3.
+tao        = { version = "0.35.3", default-features = false, features = ["rwh_06"] }
+
+[dev-dependencies]
+assert_cmd = "2.0"
+tempfile   = "3.14"
+tokio      = { version = "1.45", features = ["rt", "rt-multi-thread", "macros", "net", "time", "io-util", "process"] }
+hush-core  = { path = "../core", version = "0.0.1" }
+
+[lints]
+workspace = true

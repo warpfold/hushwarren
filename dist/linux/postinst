@@ -1,0 +1,60 @@
+#!/bin/bash
+# dist/linux/postinst — Debian/RPM post-install script.
+# WP12 §3 / docs/os-integration.md §3.
+#
+# Creates the hushwarren system user, enables and starts the daemon, then runs
+# the transactional DNS takeover.
+set -euo pipefail
+
+SNAPSHOT_DIR="/usr/local/share/hushwarren/snapshot"
+STATE_DIR="/var/lib/hushwarren"
+BIN_DIR="/usr/local/bin"
+
+# ── Create dedicated system user ──────────────────────────────────────────────
+if ! id -u hushwarren >/dev/null 2>&1; then
+    useradd \
+        --system \
+        --no-create-home \
+        --shell /usr/sbin/nologin \
+        --comment "hushwarren DNS daemon" \
+        hushwarren
+fi
+
+# State directory ownership.
+mkdir -p "${STATE_DIR}"
+chown hushwarren:hushwarren "${STATE_DIR}"
+chmod 0750 "${STATE_DIR}"
+
+# The daemon reads the snapshot directly from SNAPSHOT_DIR via the
+# HUSH_SNAPSHOT_DIR environment variable set in hushd.service — no copy is
+# needed here.  The marker file prevents this block from running on every
+# upgrade even though the block is currently a no-op.
+if [ -d "${SNAPSHOT_DIR}" ] && [ ! -f "${STATE_DIR}/.snapshot-seeded" ]; then
+    touch "${STATE_DIR}/.snapshot-seeded"
+fi
+
+# ── Enable and start the systemd unit ────────────────────────────────────────
+if command -v systemctl >/dev/null 2>&1 && systemctl is-system-running --quiet 2>/dev/null; then
+    systemctl daemon-reload
+    systemctl enable hushd.service
+    systemctl start hushd.service
+
+    # Wait up to 15 s for daemon readiness (api.addr appears when :53 is bound).
+    for i in $(seq 1 15); do
+        [ -s "${STATE_DIR}/api.addr" ] && break
+        sleep 1
+    done
+
+    if [ -s "${STATE_DIR}/api.addr" ]; then
+        echo "hushwarren: daemon ready"
+        echo "hushwarren: running DNS takeover"
+        "${BIN_DIR}/hushd" --state-dir "${STATE_DIR}" takeover || \
+            echo "hushwarren: takeover failed (DNS unchanged); check logs"
+    else
+        echo "hushwarren: daemon did not become ready within 15s; check: journalctl -u hushd" >&2
+    fi
+else
+    echo "hushwarren: systemd not running — skipping service start"
+fi
+
+echo "hushwarren: post-install complete"

@@ -1,0 +1,80 @@
+name: ci
+
+# GitHub-hosted mirror of the Gitea `gate` (.gitea/workflows/ci.yaml). The Gitea
+# workflow runs on the always-on self-hosted macOS/Windows boxes; this one gives
+# the GitHub repo its own CI on hosted runners. fmt + clippy + tests + cargo-deny
+# match the local gate so a green Gitea run stays green here.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (stable + rustfmt + clippy)
+        run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
+
+      - name: Cache cargo + target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy (deny warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests (full pyramid; live tests stay #[ignore]-gated)
+        run: cargo test --workspace
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+
+      - name: License / bans / sources gate
+        run: cargo deny check licenses bans sources
+
+  gate-windows:
+    # Native Windows runner — covers the cfg(windows) code (DNS takeover via
+    # Set-DnsClientServerAddress, ifIndex resolution, the SCM service path) that
+    # the Linux gate cfg-excludes. hush-tray is excluded: its tray event loop is
+    # macOS/Linux-only, so it's compiled-but-unused (dead_code under -D warnings)
+    # on Windows until the Windows tray port lands.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (stable + clippy)
+        run: rustup toolchain install stable --profile minimal --component clippy
+
+      - name: Cache cargo + target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Clippy (deny warnings; compiles cfg(windows))
+        run: cargo clippy --workspace --exclude hush-tray --all-targets -- -D warnings
+
+      - name: Tests (full pyramid; live tests stay #[ignore]-gated)
+        run: cargo test --workspace --exclude hush-tray

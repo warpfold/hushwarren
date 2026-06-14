@@ -1,0 +1,27 @@
+#!/bin/bash
+# dist/linux/prerm — Debian/RPM pre-remove script.
+# WP12 §3 / docs/os-integration.md §3.
+#
+# Restores DNS to its pre-install configuration and disables the service.
+set -euo pipefail
+
+STATE_DIR="/var/lib/hushwarren"
+BIN_DIR="/usr/local/bin"
+
+# ── Restore DNS (dependency-light; works without the daemon) ──────────────────
+if [ -x "${BIN_DIR}/hushd" ] && [ -f "${STATE_DIR}/dns-snapshot.json" ]; then
+    echo "hushwarren: restoring DNS from snapshot"
+    "${BIN_DIR}/hushd" --state-dir "${STATE_DIR}" restore || \
+        echo "hushwarren: restore failed — DNS may need manual intervention" >&2
+else
+    echo "hushwarren: no DNS snapshot found — skipping restore (DNS was never taken over?)"
+fi
+
+# ── Stop and disable service ──────────────────────────────────────────────────
+if command -v systemctl >/dev/null 2>&1 && systemctl is-system-running --quiet 2>/dev/null; then
+    systemctl stop hushd.service  2>/dev/null || true
+    systemctl disable hushd.service 2>/dev/null || true
+    systemctl daemon-reload
+fi
+
+echo "hushwarren: pre-remove complete"

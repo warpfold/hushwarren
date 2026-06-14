@@ -1,0 +1,110 @@
+/* hushwarren dashboard — plain CSS, no framework */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #f4f4f5;
+  color: #18181b;
+  min-height: 100vh;
+}
+
+header {
+  background: #18181b;
+  color: #fff;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+header h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+nav#tabs { display: flex; gap: 0.5rem; }
+
+.tab {
+  background: transparent;
+  border: none;
+  color: #a1a1aa;
+  cursor: pointer;
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  transition: background 0.1s, color 0.1s;
+}
+
+.tab:hover { background: #27272a; color: #fff; }
+.tab.active { background: #3f3f46; color: #fff; }
+
+main { padding: 1.5rem; max-width: 900px; margin: 0 auto; }
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+.panel h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; color: #3f3f46; }
+
+/* Cards */
+.card {
+  background: #fff;
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.card-row { display: flex; justify-content: space-between; align-items: center; padding: 0.3rem 0; }
+.card-label { color: #52525b; font-size: 0.9rem; }
+.card-value { font-weight: 600; font-size: 0.95rem; }
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.badge-ok { background: #d1fae5; color: #065f46; }
+.badge-warn { background: #fef3c7; color: #92400e; }
+.badge-off { background: #f4f4f5; color: #71717a; }
+
+/* Table */
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #e4e4e7; }
+th { background: #f9f9fa; font-weight: 600; color: #52525b; }
+tr:last-child td { border-bottom: none; }
+
+/* Allow button */
+.allow-btn {
+  background: #d1fae5;
+  border: none;
+  color: #065f46;
+  cursor: pointer;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-family: inherit;
+}
+.allow-btn:hover { background: #a7f3d0; }
+
+/* Privacy toggles read-only */
+.toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #f4f4f5; }
+.toggle-row:last-child { border-bottom: none; }
+.toggle-desc { font-size: 0.88rem; color: #52525b; max-width: 70%; }
+.toggle-val { font-weight: 600; font-size: 0.88rem; }
+
+.info-box {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  font-size: 0.88rem;
+  color: #0c4a6e;
+  margin-top: 1rem;
+  line-height: 1.5;
+}
+
+.err { color: #ef4444; font-size: 0.88rem; padding: 0.5rem 0; }

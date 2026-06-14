@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  LaunchAgent for hush-tray — runs in the user session (not as root).
+  WP10 §4: "LaunchAgent, RunAtLoad, user session".
+
+  Placement: ~/Library/LaunchAgents/io.hushwarren.tray.plist
+  (installed by dist/macos/install.sh and dist/macos/lib.sh, removed by uninstall.sh)
+
+  Design notes:
+  - KeepAlive = false: the tray is ambient UI; crashing it never affects
+    filtering (the daemon is the product).  launchd will not restart it
+    automatically — the user can re-open it or it re-launches at next login.
+  - RunAtLoad = true: appears in the menu bar on login without user action.
+  - LimitLoadToSessionType = Aqua: user-session GUI only; does not launch
+    at SSH login or in headless contexts.
+  - HUSH_STATE_DIR is NOT set here; the tray resolves the state dir the
+    same way the daemon does (env override > /Library/Application Support/hushwarren).
+  - StandardOutPath / StandardErrorPath: LaunchAgent plists do NOT expand
+    '~' at runtime — the installer substitutes the real $HOME at install time
+    (see install_tray_agent in dist/macos/lib.sh).  The placeholder
+    __HUSH_TRAY_LOG__ is replaced with the actual user log path.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>io.hushwarren.tray</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/hush-tray</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <false/>
+
+  <key>LimitLoadToSessionType</key>
+  <string>Aqua</string>
+
+  <key>StandardOutPath</key>
+  <string>__HUSH_TRAY_LOG__</string>
+
+  <key>StandardErrorPath</key>
+  <string>__HUSH_TRAY_LOG__</string>
+</dict>
+</plist>

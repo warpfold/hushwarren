@@ -1,0 +1,22 @@
+[package]
+name = "hush-core"
+description = "Pure decision/blocklist logic for hushwarren — no I/O, no OS deps"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+fst.workspace       = true
+serde.workspace     = true
+serde_json.workspace = true
+thiserror.workspace = true
+arc-swap.workspace  = true
+toml.workspace      = true
+tracing.workspace   = true
+
+[dev-dependencies]
+tempfile.workspace  = true
+
+[lints]
+workspace = true

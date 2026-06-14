@@ -1,0 +1,104 @@
+[package]
+name = "hush-daemon"
+description = "hushd — hushwarren's resolver daemon: DNS engine, Sentinel, control API"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "hush_daemon"
+path = "src/lib.rs"
+
+[[bin]]
+name = "hushd"
+path = "src/main.rs"
+
+[dependencies]
+hush-core = { path = "../core", version = "0.0.1" }
+
+# Async runtime
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "net", "time", "sync", "io-util"] }
+
+# DNS server (tls-ring: DoT inbound; quic-ring: DoQ inbound — both WP14)
+hickory-server = { version = "0.26.1", features = ["tls-ring", "quic-ring"] }
+hickory-proto   = "0.26.1"
+
+# DNS resolver (DoH/h2 via https-ring; DoH3/h3 via h3-ring; platform verifier avoids webpki-roots/MPL)
+# h3-ring adds quinn (MIT/Apache-2.0) and related QUIC deps — all permissive; verified by cargo deny.
+hickory-resolver = { version = "0.26.1", features = ["https-ring", "h3-ring", "rustls-platform-verifier", "tokio"] }
+
+# HTTP client for list fetching + padded DoH transport (default-features off; rustls + platform verifier; gzip)
+# http2 feature added for PaddedDohRung::http2_prior_knowledge (WP8 §3 hand-rolled DoH path).
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "gzip", "http2"] }
+
+# async-trait: required for implementing hickory's RequestHandler / ResponseHandler
+async-trait = "0.1"
+
+# tokio-util: CancellationToken (no extra feature flag needed — sync module is
+# always built; the crate is also pulled in transitively by hickory-server)
+tokio-util = "0.7"
+
+# Atomic hot-path rule swaps
+arc-swap.workspace = true
+
+# Serialization
+serde.workspace     = true
+serde_json.workspace = true
+toml.workspace      = true
+
+# Error types
+thiserror.workspace = true
+
+# Logging
+tracing.workspace = true
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# CLI arg parsing
+clap = { version = "4", features = ["derive"] }
+
+# Control API (WP3)
+axum.workspace    = true
+rand.workspace    = true
+subtle.workspace  = true
+
+# ODoH experimental upstream rung (WP7) — BSD-2-Clause, crypto only (no transport).
+odoh-rs.workspace = true
+bytes.workspace   = true
+
+# SQLite rollup writer (WP9).  bundled feature statically links libsqlite3
+# so no system library is required.  MIT licensed — verified by cargo deny.
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# WP14: Self-signed TLS certificate generation for inbound DoT/DoQ.
+# License: MIT OR Apache-2.0 — both in deny.toml allowlist (verified).
+# Uses ring backend consistent with the rustls ring provider used elsewhere.
+rcgen = { version = "0.14", default-features = false, features = ["ring", "pem"] }
+
+# WP14: rustls types (ServerConfig, ResolvesServerCert) needed for inbound TLS.
+# Version 0.23 matches what hickory-server 0.26.1 pulls in transitively.
+# License: Apache-2.0/MIT — in deny.toml allowlist.
+rustls = { version = "0.23", features = ["ring"] }
+
+# socket2: SO_REUSEADDR/SO_REUSEPORT for mDNS multicast bind (WP14 §3).
+# Already in the transitive graph via reqwest/hickory; MIT OR Apache-2.0.
+socket2 = { version = "0.6", features = ["all"] }
+
+# ── Windows-only dependencies ─────────────────────────────────────────────────
+# windows-service: MIT OR Apache-2.0 (verified; both in deny.toml allowlist).
+# Only compiled on Windows; never enters the macOS/Linux build graph directly,
+# but cargo-deny checks it in the lockfile graph regardless.
+[target.'cfg(windows)'.dependencies]
+windows-service = "0.8"
+
+[dev-dependencies]
+tempfile.workspace    = true
+serde_json.workspace  = true
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "process", "io-util"] }
+tower.workspace       = true
+# hickory-resolver used as the test DNS client too
+# tokio-rustls: async TLS client for the DoT integration test (already in transitive graph)
+tokio-rustls = "0.26"
+
+[lints]
+workspace = true

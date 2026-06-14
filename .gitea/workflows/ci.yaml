@@ -1,0 +1,103 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  gate:
+    # Local Gitea self-hosted runner (same pattern as spark-rust CI):
+    # persistent workspace dir so target/ + registry cache survive runs;
+    # manual cached checkout (no marketplace actions on the local runner).
+    runs-on: self-hosted
+    env:
+      WS: workspace-hushwarren
+    steps:
+      - name: Checkout (cached)
+        run: |
+          if [ -d "$WS/.git" ]; then
+            cd "$WS"
+            git fetch origin "$GITHUB_SHA"
+            git reset --hard "$GITHUB_SHA"
+            git clean -fdx -e target -e .cargo
+          else
+            git clone "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$WS"
+            cd "$WS"
+            git fetch origin "$GITHUB_SHA"
+            git checkout "$GITHUB_SHA"
+          fi
+
+      - name: Format check
+        run: cd "$WS" && cargo fmt --all -- --check
+
+      - name: Clippy (deny warnings)
+        run: cd "$WS" && cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests (full pyramid; live tests stay #[ignore]-gated)
+        run: cd "$WS" && cargo test --workspace
+
+      - name: Install cargo-deny (if missing)
+        run: |
+          if ! command -v cargo-deny >/dev/null 2>&1; then
+            cargo install cargo-deny --locked
+          fi
+
+      - name: License / bans / sources gate
+        run: cd "$WS" && cargo deny check licenses bans sources
+
+  gate-windows:
+    # Native Windows runner. The Linux `gate` job cfg-EXCLUDES every
+    # `#[cfg(target_os = "windows")]` item (DNS takeover via
+    # Set-DnsClientServerAddress, ifIndex resolution, the SCM service install /
+    # recovery / LocalSystem path) — so a Windows-only compile, type, or lint
+    # regression is invisible there. This job compiles + lints + unit-tests that
+    # code natively. Behavioural takeover regressions are guarded by the pure
+    # command-builder unit tests (host-independent) plus the manual live proof
+    # (proof/win-live-proof.ps1, needs an elevated real host — not run in CI).
+    #
+    # Requires a self-hosted Windows runner registered with the
+    # `self-hosted-windows-amd64` label and a Rust MSVC toolchain on PATH
+    # (see dist/windows/README.md). fmt + cargo-deny are OS-independent and stay
+    # on the Linux `gate` only.
+    runs-on: self-hosted-windows-amd64
+    # Non-blocking: the Windows runner is an intermittent self-hosted box (the
+    # always-on runner is the macOS host that serves `gate`). When the Windows
+    # box is offline this job waits in the queue and runs when it next comes
+    # online; continue-on-error means a failure never blocks a merge. Keep it
+    # OUT of branch-protection "required checks" — it's an opportunistic signal.
+    continue-on-error: true
+    defaults:
+      run:
+        shell: bash
+    env:
+      WS: workspace-hushwarren-win
+    steps:
+      - name: Checkout (cached)
+        run: |
+          if [ -d "$WS/.git" ]; then
+            cd "$WS"
+            git fetch origin "$GITHUB_SHA"
+            git reset --hard "$GITHUB_SHA"
+            git clean -fdx -e target -e .cargo
+          else
+            git clone "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$WS"
+            cd "$WS"
+            git fetch origin "$GITHUB_SHA"
+            git checkout "$GITHUB_SHA"
+          fi
+
+      # hush-tray is excluded on Windows: its system-tray event loop is only
+      # wired for macOS/Linux, so the icon/state helpers are compiled-but-unused
+      # on Windows (dead_code under -D warnings). The Windows tray port is
+      # separate, unfinished work; drop the --exclude once it lands. The
+      # Windows-critical code (DNS takeover, SCM service) lives in hush-daemon,
+      # which IS covered here.
+      - name: Clippy (deny warnings; compiles cfg(windows))
+        run: cd "$WS" && cargo clippy --workspace --exclude hush-tray --all-targets -- -D warnings
+
+      - name: Tests (full pyramid; live tests stay #[ignore]-gated)
+        run: cd "$WS" && cargo test --workspace --exclude hush-tray

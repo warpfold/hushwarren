@@ -1,0 +1,64 @@
+# hushd.service — hushwarren DNS daemon (Linux systemd unit)
+# WP12 §3 / docs/os-integration.md §3
+#
+# Key design decisions:
+# - Restart=always: the daemon must never stay down (WP5 crash-loop breaker
+#   handles runaway restarts at the application layer; see
+#   crates/daemon/src/sentinel/breaker.rs — check_breaker() fires and restores
+#   DNS after threshold abnormal restarts within the window, so systemd's
+#   runaway-restart guard is not needed here).
+# - Type=exec: hushd has no sd_notify integration, so the simpler exec type
+#   is correct.  systemd considers the service "ready" once the process is
+#   started; the daemon's own breaker handles dirty-crash recovery internally.
+# - AmbientCapabilities=CAP_NET_BIND_SERVICE: binds :53 without running as root
+#   (docs/os-integration.md §1 "no root" for Linux).
+# - StateDirectory/LogsDirectory: managed by systemd so permissions are correct
+#   and the unit does not need write access to /var outside its state dir.
+# - After=network-online.target: daemon needs the network up for DoH.
+
+[Unit]
+Description=hushwarren DNS resolver daemon
+Documentation=https://github.com/hushwarren/hushwarren
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=hushwarren
+Group=hushwarren
+
+ExecStart=/usr/local/bin/hushd \
+    --state-dir /var/lib/hushwarren \
+    run
+
+# HUSH_SNAPSHOT_DIR tells the daemon where to find the pre-fetched first-boot
+# blocklist snapshot installed by the package into /usr/local/share/hushwarren/snapshot.
+# The daemon reads this via apply_env_overrides() in main.rs and uses it as
+# lists.snapshot_dir when no explicit config value is set.
+Environment=HUSH_SNAPSHOT_DIR=/usr/local/share/hushwarren/snapshot
+
+# Restart policy: always restart; crash-loop breaker inside the daemon limits
+# actual restarts to threshold/window before entering Attention state.
+Restart=always
+RestartSec=2s
+
+# Privilege constraints.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+
+# State and log directories (systemd creates and owns these with correct perms).
+StateDirectory=hushwarren
+StateDirectoryMode=0750
+LogsDirectory=hushwarren
+LogsDirectoryMode=0750
+
+# Runtime dir for api.addr socket (if used).
+RuntimeDirectory=hushwarren
+RuntimeDirectoryMode=0750
+
+[Install]
+WantedBy=multi-user.target

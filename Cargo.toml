@@ -1,0 +1,43 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/core",   # hush-core   — pure decision/blocklist logic (no I/O)
+    "crates/daemon", # hushd       — DNS server + Sentinel + control API
+    "crates/cli",    # hush        — control CLI
+    "crates/tray",   # hush-tray   — menu bar / system tray UI
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/warpfold/hushwarren"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"   # a DNS daemon that panics takes the user offline (P1)
+expect_used = "deny"
+
+[workspace.dependencies]
+# Shared by hush-core and future crates; pin versions here, reference with
+# `dep.workspace = true` in member Cargo.toml files.
+serde        = { version = "1.0",  features = ["derive"] }
+serde_json   = "1.0"
+thiserror    = "2.0"
+arc-swap     = "1.9"
+toml         = "1.1"
+tracing      = "0.1"
+tempfile     = "3.27"
+fst          = "0.4"
+tokio        = { version = "1", features = ["rt-multi-thread", "macros", "signal", "net", "time", "sync", "io-util"] }
+axum         = { version = "0.8", default-features = false, features = ["json", "http1", "tokio", "query"] }
+rand         = { version = "0.9", features = ["os_rng"] }
+subtle       = "2.6"
+tower        = { version = "0.5", features = ["util"] }
+# ODoH crypto primitives (WP7) — BSD-2-Clause; verified in deny check.
+odoh-rs      = "1.0.4"
+# Byte buffer used by odoh-rs API (bytes::Bytes / BytesMut).
+bytes        = "1.0"
+
+[profile.release]
+lto = "thin"
+strip = true

@@ -1,0 +1,78 @@
+# dist/linux/nfpm.yaml — nfpm package config for .deb + .rpm
+# WP12 §3.
+#
+# Choice: nfpm over cargo-deb because nfpm produces both .deb and .rpm from a
+# single config; cargo-deb produces .deb only.  Consistent with
+# docs/os-integration.md §5 ("nfpm-style deb+rpm").
+#
+# Build (Linux CI runner, after cargo build --release and dist/build-snapshot.sh):
+#   nfpm package --config dist/linux/nfpm.yaml --packager deb
+#   nfpm package --config dist/linux/nfpm.yaml --packager rpm
+#
+# See dist/linux/README.md for the full CI recipe.
+
+name: hushwarren
+arch: amd64
+platform: linux
+version: "0.0.1"
+maintainer: "hushwarren <noreply@hushwarren.io>"
+description: |
+  hushwarren — private DNS resolver with blocklisting.
+  Intercepts all DNS queries, applies Hagezi/OISD blocklists, and forwards
+  via DNS-over-HTTPS (Cloudflare, Quad9, or Mullvad). Includes a
+  transactional DNS-takeover/restore that leaves the system DNS bit-identical
+  to pre-install if something goes wrong.
+homepage: "https://github.com/hushwarren/hushwarren"
+license: GPL-3.0-or-later
+
+depends:
+  # curl is needed by dist/build-snapshot.sh at package-build time only;
+  # the daemon itself has no runtime deps beyond libc on musl-static builds.
+  - "ca-certificates"
+
+contents:
+  # Binaries.
+  - src: ../../target/release/hushd
+    dst: /usr/local/bin/hushd
+    file_info:
+      mode: 0755
+
+  - src: ../../target/release/hush
+    dst: /usr/local/bin/hush
+    file_info:
+      mode: 0755
+
+  # systemd unit.
+  - src: hushd.service
+    dst: /usr/lib/systemd/system/hushd.service
+    file_info:
+      mode: 0644
+
+  # Pre-fetched Hagezi snapshot (MIT, bundleable; OISD is runtime-fetch only).
+  - src: ../../dist/_snapshot/
+    dst: /usr/local/share/hushwarren/snapshot/
+    type: dir
+    file_info:
+      mode: 0755
+
+  # State directory placeholder (ownership set by postinst).
+  - dst: /var/lib/hushwarren
+    type: dir
+    file_info:
+      mode: 0750
+      owner: hushwarren
+      group: hushwarren
+
+scripts:
+  postinstall: postinst
+  preremove: prerm
+
+overrides:
+  rpm:
+    depends:
+      - "ca-certificates"
+    file_name_template: "hushwarren-{{ .Version }}.{{ .Arch }}"
+  deb:
+    depends:
+      - "ca-certificates"
+    file_name_template: "hushwarren_{{ .Version }}_{{ .Arch }}"

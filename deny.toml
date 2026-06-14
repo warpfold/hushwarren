@@ -1,0 +1,90 @@
+# cargo-deny config — license allowlist is the enforcement of README "permissive
+# everywhere". Adding to this list is an architecture decision, not a build fix.
+
+# Evaluate the dependency graphs of the triples we actually ship (architecture
+# §10 P2). This is NOT a license loophole: every shipped target's full graph is
+# still checked against the allowlist below. It exists because target-scoped
+# deps (e.g. the tray UI stack, macOS+Windows only — Linux tray deferred, see
+# crates/tray/Cargo.toml) would otherwise be evaluated for platforms that never
+# build them: tray-icon's Linux-only chain pulls MPL-2.0 `option-ext`, which
+# stays banned on every target we ship.
+[graph]
+targets = [
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+]
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "CC0-1.0",
+    "0BSD",
+    # ring's pre-rewrite license text (ISC-style + OpenSSL heritage); pulled in
+    # transitively by rustls stacks. Accepted: permissive in substance.
+    "OpenSSL",
+    # webpki-root-certs ships Mozilla's CA-store DATA under the Community Data
+    # License Agreement Permissive 2.0 — permissive, attribution-style, no
+    # copyleft. NOT the same crate as webpki-roots (MPL-2.0), which stays banned.
+    "CDLA-Permissive-2.0",
+]
+# NOTE: webpki-roots is MPL-2.0 (file-level copyleft) — we deliberately do NOT
+# allow it; use rustls-native-certs / platform verifiers instead (standards §4).
+
+# Our OWN crates are GPL-3.0-or-later (architecture P4: copyleft out, permissive
+# in). Scoped exceptions, NOT a global allow — a GPL *dependency* must still fail.
+[[licenses.exceptions]]
+crate = "hush-core"
+allow = ["GPL-3.0-or-later"]
+[[licenses.exceptions]]
+crate = "hush-daemon"
+allow = ["GPL-3.0-or-later"]
+[[licenses.exceptions]]
+crate = "hush-cli"
+allow = ["GPL-3.0-or-later"]
+[[licenses.exceptions]]
+crate = "hush-tray"
+allow = ["GPL-3.0-or-later"]
+
+# option-ext is MPL-2.0 and is NEVER compiled into any shipped artifact:
+# the tray UI stack (tray-icon/muda/tao) is target-scoped to macOS+Windows in
+# crates/tray/Cargo.toml, and the chain that pulls option-ext (tray-icon →
+# dirs → dirs-sys → option-ext) is Linux/BSD-conditional inside tray-icon.
+# `cargo tree -i option-ext --target <each shipped triple>` is empty for ALL
+# five triples above. It appears here only because cargo-deny's graph is
+# path-insensitive across targets (tray-icon enters via darwin; its
+# linux-only edge is then evaluated for the linux triples). If any shipped
+# target ever actually compiles option-ext, REMOVE this exception and fix
+# the dependency instead.
+[[licenses.exceptions]]
+crate = "option-ext"
+allow = ["MPL-2.0"]
+
+[[licenses.clarify]]
+crate = "ring"
+expression = "ISC AND OpenSSL"
+license-files = [{ path = "LICENSE", hash = 0xbd0eed23 }]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Version-less `path = "../core"` deps between our own private workspace crates
+# are not wildcards in the supply-chain sense.
+allow-wildcard-paths = true
+
+[advisories]
+yanked = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

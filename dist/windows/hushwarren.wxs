@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  dist/windows/hushwarren.wxs — WiX v4 installer definition.
+  WP12 §4 / docs/os-integration.md §4.
+  Recipe-only: no Windows here.  See dist/windows/README.md for build command.
+
+  Design decisions:
+  - Service install via `hushd service install` custom action (not ServiceControl
+    element) because hushd already implements the Windows Service Manager protocol.
+  - Uninstall custom action runs `hushd restore` BEFORE files are removed so the
+    DNS snapshot is available during cleanup.
+  - Start-menu shortcut for hush-tray (the user-facing entry point).
+  - HUSH_SIGN_PFX env-var hook for code signing (see README.md).
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <!-- ── Product identity ───────────────────────────────────────────────────── -->
+  <Package Name="hushwarren"
+           Manufacturer="hushwarren"
+           Version="0.0.1"
+           Language="1033"
+           UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
+           Scope="perMachine">
+
+    <!-- Upgrade: replace older versions. -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of hushwarren is already installed." />
+
+    <!-- ── Media / cabinet ──────────────────────────────────────────────────── -->
+    <Media Id="1" Cabinet="hushwarren.cab" EmbedCab="yes" />
+
+    <!-- ── Directory tree ────────────────────────────────────────────────────── -->
+    <StandardDirectory Id="ProgramFilesFolder">
+      <Directory Id="INSTALLDIR" Name="hushwarren" />
+    </StandardDirectory>
+
+    <!-- ProgramData state dir. -->
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="STATEDIRPARENT" Name="hushwarren" />
+    </StandardDirectory>
+
+    <!-- Start Menu shortcut. -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="hushwarren" />
+    </StandardDirectory>
+
+    <!-- ── Feature ───────────────────────────────────────────────────────────── -->
+    <Feature Id="ProductFeature" Title="hushwarren" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="SnapshotComponents" />
+      <ComponentGroupRef Id="ShortcutComponents" />
+    </Feature>
+
+    <!-- ── Components ────────────────────────────────────────────────────────── -->
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLDIR">
+
+      <!-- hushd.exe -->
+      <Component Id="CompHushd" Guid="B1C2D3E4-F5A6-7890-BCDE-F12345678901">
+        <File Id="FileHushd" Source="..\..\target\release\hushd.exe"
+              KeyPath="yes" Vital="yes" />
+      </Component>
+
+      <!-- hush.exe (CLI) -->
+      <Component Id="CompHush" Guid="C2D3E4F5-A6B7-8901-CDEF-123456789012">
+        <File Id="FileHush" Source="..\..\target\release\hush.exe"
+              KeyPath="yes" />
+      </Component>
+
+      <!-- hush-tray.exe (menu-bar UI) -->
+      <Component Id="CompHushTray" Guid="D3E4F5A6-B7C8-9012-DEF0-234567890123">
+        <File Id="FileHushTray" Source="..\..\target\release\hush-tray.exe"
+              KeyPath="yes" />
+        <!-- Run-key login item so the tray starts at user logon. -->
+        <RegistryValue Root="HKCU"
+                       Key="Software\Microsoft\Windows\CurrentVersion\Run"
+                       Name="hushwarren-tray"
+                       Type="string"
+                       Value="[INSTALLDIR]hush-tray.exe"
+                       KeyPath="no" />
+      </Component>
+
+    </ComponentGroup>
+
+    <!-- Pre-fetched Hagezi snapshot (MIT, bundleable). -->
+    <ComponentGroup Id="SnapshotComponents" Directory="INSTALLDIR">
+      <Component Id="CompSnapshotDir" Guid="E4F5A6B7-C8D9-0123-EF01-345678901234">
+        <!-- Directory marker component — the actual .txt files are added below. -->
+        <CreateFolder Directory="INSTALLDIR" />
+        <KeyPath Id="SnapshotDirKeyPath">
+          <RegistryValue Root="HKLM"
+                         Key="Software\hushwarren"
+                         Name="SnapshotInstalled"
+                         Type="integer" Value="1" />
+        </KeyPath>
+      </Component>
+
+      <!--
+        NOTE: replace with actual .txt files from dist/_snapshot/ after running
+        dist/build-snapshot.sh.  WiX requires explicit <File> elements for each
+        file; a harvest tool (heat.exe / HeatDirectory) can generate them from the
+        snapshot directory.  Example:
+            heat.exe dir dist\_snapshot -o snapshot_files.wxs -srd -dr SNAPSHOTDIR ...
+      -->
+      <!-- PLACEHOLDER: snapshot files generated by HeatDirectory at build time.
+      <Component Id="CompHageziLight" Guid="...">
+        <File Id="FileHageziLight" Source="..\..\dist\_snapshot\hagezi-light.txt" KeyPath="yes" />
+      </Component>
+      <Component Id="CompHageziMulti" Guid="...">
+        <File Id="FileHageziMulti" Source="..\..\dist\_snapshot\hagezi-multi.txt" KeyPath="yes" />
+      </Component>
+      <Component Id="CompSnapshotManifest" Guid="...">
+        <File Id="FileSnapshotManifest" Source="..\..\dist\_snapshot\manifest.json" KeyPath="yes" />
+      </Component>
+      -->
+    </ComponentGroup>
+
+    <!-- Start-menu shortcut for hush-tray. -->
+    <ComponentGroup Id="ShortcutComponents" Directory="ApplicationProgramsFolder">
+      <Component Id="CompShortcut" Guid="F5A6B7C8-D9E0-1234-F012-456789012345">
+        <Shortcut Id="ShortcutHushTray"
+                  Name="hushwarren"
+                  Description="hushwarren — private DNS resolver"
+                  Target="[INSTALLDIR]hush-tray.exe"
+                  WorkingDirectory="INSTALLDIR" />
+        <RemoveFolder Id="RemoveProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\hushwarren"
+                       Name="installed"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ── Custom actions ────────────────────────────────────────────────────── -->
+
+    <!--
+      hushd implements `service install` and `service uninstall` (not
+      `service start` / `service remove`).  Starting and stopping the SCM
+      service is handled via WiX ServiceControl elements below, which call
+      sc.exe / the SCM API rather than a custom hushd subcommand.
+    -->
+
+    <!-- Register the Windows service after files are laid down.
+         Uses the real `service install` subcommand (clap-defined in main.rs). -->
+    <CustomAction Id="ServiceInstall"
+                  Directory="INSTALLDIR"
+                  Execute="deferred"
+                  Return="check"
+                  Impersonate="no"
+                  ExeCommand="[INSTALLDIR]hushd.exe service install" />
+
+    <!-- Start the service via sc.exe (the SCM API).
+         hushd has no `service start` subcommand; sc start is the correct path. -->
+    <CustomAction Id="ServiceStart"
+                  Directory="INSTALLDIR"
+                  Execute="deferred"
+                  Return="check"
+                  Impersonate="no"
+                  ExeCommand="sc start hushwarren" />
+
+    <!-- Run DNS takeover after the service is started. -->
+    <CustomAction Id="DnsTakeover"
+                  Directory="INSTALLDIR"
+                  Execute="deferred"
+                  Return="check"
+                  Impersonate="no"
+                  ExeCommand="[INSTALLDIR]hushd.exe takeover" />
+
+    <!-- UNINSTALL: restore DNS BEFORE files are removed so the snapshot exists. -->
+    <CustomAction Id="DnsRestore"
+                  Directory="INSTALLDIR"
+                  Execute="deferred"
+                  Return="ignore"
+                  Impersonate="no"
+                  ExeCommand="[INSTALLDIR]hushd.exe restore" />
+
+    <!-- Stop the service via sc.exe, then unregister it via `service uninstall`.
+         hushd has no `service remove` subcommand; the real subcommand is `service uninstall`. -->
+    <CustomAction Id="ServiceStop"
+                  Directory="INSTALLDIR"
+                  Execute="deferred"
+                  Return="ignore"
+                  Impersonate="no"
+                  ExeCommand="sc stop hushwarren" />
+
+    <CustomAction Id="ServiceUninstall"
+                  Directory="INSTALLDIR"
+                  Execute="deferred"
+                  Return="ignore"
+                  Impersonate="no"
+                  ExeCommand="[INSTALLDIR]hushd.exe service uninstall" />
+
+    <!-- ── Install sequence ──────────────────────────────────────────────────── -->
+    <InstallExecuteSequence>
+      <!-- Run service install after CostFinalize and before InstallFinalize. -->
+      <Custom Action="ServiceInstall"
+              After="InstallFiles"
+              Condition="NOT Installed" />
+      <Custom Action="ServiceStart"
+              After="ServiceInstall"
+              Condition="NOT Installed" />
+      <Custom Action="DnsTakeover"
+              After="ServiceStart"
+              Condition="NOT Installed" />
+
+      <!-- Uninstall: restore DNS and remove service BEFORE files are deleted.
+           Order: DnsRestore → ServiceStop → ServiceUninstall → RemoveFiles
+           guarantees the snapshot is on disk when restore runs. -->
+      <Custom Action="DnsRestore"
+              Before="RemoveFiles"
+              Condition="REMOVE~=&quot;ALL&quot;" />
+      <Custom Action="ServiceStop"
+              After="DnsRestore"
+              Condition="REMOVE~=&quot;ALL&quot;" />
+      <Custom Action="ServiceUninstall"
+              After="ServiceStop"
+              Condition="REMOVE~=&quot;ALL&quot;" />
+    </InstallExecuteSequence>
+
+    <!-- ── UI ─────────────────────────────────────────────────────────────────── -->
+    <ui:WixUI Id="WixUI_Minimal" />
+
+  </Package>
+</Wix>

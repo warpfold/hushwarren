@@ -1,0 +1,28 @@
+/target
+.hushwarren-state/
+.DS_Store
+
+# Live-proof transcripts are regenerated per run; keep the dir tracked but not
+# the volatile per-run logs. (The evidence doc summarizes them.)
+
+# Packaging build outputs (built by dist/build-snapshot.sh + dist/macos/build-pkg.sh)
+dist/_pkg/
+dist/_snapshot/
+dist/_snapshot_ultimate/
+
+# Local self-hosted CI runner (binary + .runner registration SECRET) — never commit
+.ci-runner/
+
+# Local agent-tooling state (engram graph + spark SQLite DBs) — not project files
+.engram/
+.spark/
+
+# Design scratch / local artifacts — not referenced by the project
+generated/
+spark-design.png
+spark-design.svg
+Screenshot*.png
+
+# Internal design docs & live-proof evidence — kept local, not published
+docs/
+proof/

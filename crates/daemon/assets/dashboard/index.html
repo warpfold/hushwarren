@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>hushwarren dashboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>hushwarren</h1>
+  <nav id="tabs">
+    <button class="tab active" data-tab="status">Status</button>
+    <button class="tab" data-tab="blocked">Recently Blocked</button>
+    <button class="tab" data-tab="insights">Insights</button>
+    <button class="tab" data-tab="lists">Lists</button>
+    <button class="tab" data-tab="privacy">Privacy</button>
+    <button class="tab" id="clients-tab" data-tab="clients" style="display:none">Clients</button>
+  </nav>
+</header>
+<main>
+  <div id="status" class="panel active">
+    <h2>Status</h2>
+    <div id="status-content"><p>Loading&hellip;</p></div>
+  </div>
+  <div id="blocked" class="panel">
+    <h2>Recently Blocked</h2>
+    <div id="blocked-content"><p>Loading&hellip;</p></div>
+  </div>
+  <div id="insights" class="panel">
+    <h2>Insights</h2>
+    <div id="insights-content"><p>Loading&hellip;</p></div>
+  </div>
+  <div id="lists" class="panel">
+    <h2>Lists</h2>
+    <div id="lists-content"><p>Loading&hellip;</p></div>
+  </div>
+  <div id="privacy" class="panel">
+    <h2>Privacy</h2>
+    <div id="privacy-content"><p>Loading&hellip;</p></div>
+  </div>
+  <div id="clients" class="panel">
+    <h2>Clients</h2>
+    <div id="clients-content"><p>Loading&hellip;</p></div>
+  </div>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
