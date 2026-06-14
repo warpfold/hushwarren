@@ -36,11 +36,16 @@ jobs:
       - name: Format check
         run: cargo fmt --all -- --check
 
+      # hush-tray is excluded on Linux: the tray UI (event loop, icon helpers)
+      # is macOS-first — `icon_for_state` is cfg(macos|windows) only, so the
+      # crate does not build on Linux. The always-on Gitea `gate` runs on macOS
+      # and covers hush-tray there; this Linux mirror skips it (same rationale
+      # as the Windows gate below). Drop the --exclude once a Linux tray lands.
       - name: Clippy (deny warnings)
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --exclude hush-tray --all-targets -- -D warnings
 
       - name: Tests (full pyramid; live tests stay #[ignore]-gated)
-        run: cargo test --workspace
+        run: cargo test --workspace --exclude hush-tray
 
       - name: Install cargo-deny
         uses: taiki-e/install-action@v2
