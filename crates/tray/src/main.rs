@@ -50,14 +50,14 @@ use crate::{
 // `-D warnings`. (The tray UI is macOS-only: tray-icon's Linux dependency chain
 // pulls MPL-2.0 `option-ext`, banned by the license policy — see icon.rs.)
 #[cfg(target_os = "macos")]
-use std::{
-    sync::{Arc, Mutex},
-    time::{Duration, Instant},
-};
-#[cfg(target_os = "macos")]
 use crate::{
     icon::icon_for_state,
     state::{DotState, TrayState},
+};
+#[cfg(target_os = "macos")]
+use std::{
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
 };
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
