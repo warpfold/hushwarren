@@ -957,6 +957,12 @@ async fn case10_concurrent_burst() {
     // concurrent load; retry absorbs transport loss.
     const TOTAL: usize = 500;
     const IN_FLIGHT: usize = 50;
+    // Liveness budget for the whole burst — generous on purpose. GitHub-hosted
+    // CI runners are slower and shared compared with the self-hosted box this
+    // was first tuned on (20s); the test asserts the burst completes and every
+    // query succeeds, not a precise latency SLO, so a wide budget removes the
+    // timing flake without weakening the concurrency guarantee.
+    const BURST_BUDGET: Duration = Duration::from_secs(60);
     let start = std::time::Instant::now();
     let sem = std::sync::Arc::new(tokio::sync::Semaphore::new(IN_FLIGHT));
     let mut handles = Vec::with_capacity(TOTAL);
@@ -982,7 +988,7 @@ async fn case10_concurrent_burst() {
         }));
     }
 
-    let (ok, _err) = timeout(Duration::from_secs(20), async {
+    let (ok, _err) = timeout(BURST_BUDGET, async {
         let mut ok = 0usize;
         let mut err = 0usize;
         for h in handles {
@@ -994,13 +1000,10 @@ async fn case10_concurrent_burst() {
         (ok, err)
     })
     .await
-    .expect("burst must complete within 20 seconds");
+    .expect("burst must complete within the budget");
 
     let elapsed = start.elapsed();
-    assert!(
-        elapsed < Duration::from_secs(20),
-        "burst took too long: {elapsed:?}"
-    );
+    assert!(elapsed < BURST_BUDGET, "burst took too long: {elapsed:?}");
     assert_eq!(ok, TOTAL, "all {TOTAL} queries must succeed");
 
     let snap = app.metrics.snapshot();
